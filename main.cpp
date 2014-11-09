@@ -7,33 +7,34 @@
 #include <deque>
 #include <string>
 
-#define TEST_NUMBER 10
+const size_t TEST_NUMBER = 10;
+
 struct MyStruct
 {
     std::string Key;
     double Value;
 };
 
-bool operator< (const MyStruct a, const MyStruct b)
+bool operator< (const MyStruct &a, const MyStruct &b)
 {
     return a.Key < b.Key;
 }
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
-void SortInsertionManualCopy(Iterator Begin, Iterator End, Comparator comparator = Comparator())
+void SortInsertionManualCopy(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
 {
-    if (!(Begin < End))
+    if (Begin >= End)
     {
         return;
     }
     else
     {
 
-        for (Iterator it = Begin; it != End; it++)
+        for (Iterator it = Begin; it != End; ++it)
         {
 
-            for (Iterator moveIt = it; (moveIt != Begin) && ( comparator (*moveIt, *(moveIt-1))); moveIt--)
+            for (Iterator moveIt = it; (moveIt != Begin) && ( comparator (*moveIt, *(moveIt-1))); --moveIt)
             {
                 std::swap(*moveIt, *(moveIt-1));
             }
@@ -41,25 +42,23 @@ void SortInsertionManualCopy(Iterator Begin, Iterator End, Comparator comparator
         }
 
     }
-
-    return;
 }
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
 void SortInsertionSTLCopy(Iterator Begin, Iterator End, Comparator comparator = Comparator())
 {
-    if (!(Begin < End))
+    if (Begin >= End)
     {
         return;
     }
     else
     {
 
-        for (Iterator it = Begin; it != End; it++)
+        for (Iterator it = Begin; it != End; ++it)
         {
-            Iterator moveIt = it;
             typename std::iterator_traits<Iterator>::value_type rememberValue = *it;
+            Iterator moveIt = it;
 
             while ((moveIt != Begin) && (comparator(*it, *(moveIt - 1))))
                 --moveIt;
@@ -69,25 +68,23 @@ void SortInsertionSTLCopy(Iterator Begin, Iterator End, Comparator comparator = 
         }
 
     }
-
-    return;
 }
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
 void SortSelection(Iterator Begin, Iterator End, Comparator comparator = Comparator())
 {
-    if (!(Begin < End))
+    if (Begin >= End)
     {
         return;
     }
     else
     {
-        for (Iterator it = Begin; it != End; it++)
+        for (Iterator it = Begin; it != End; ++it)
         {
             Iterator MinIt = it;
 
-            for (Iterator Current = it; Current != End; Current++)
+            for (Iterator Current = it + 1; Current != End; ++Current)
             {
                 if (comparator(*Current, *MinIt))
                     MinIt = Current;
@@ -96,14 +93,12 @@ void SortSelection(Iterator Begin, Iterator End, Comparator comparator = Compara
             std::swap(*MinIt, *it);
         }
     }
-
-    return;
 }
 
 template<typename Iterator>
 void SortHeap(Iterator Begin, Iterator End)
 {
-    if (!(Begin < End))
+    if (Begin >= End)
     {
         return;
     }
@@ -115,31 +110,30 @@ void SortHeap(Iterator Begin, Iterator End)
             std::pop_heap(Begin, End--);
 
     }
-
-    return;
 }
+
+std::default_random_engine QuickSortLocalGen;
+const size_t CUT_OFF = 25;
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
 void SortQuick(Iterator Begin, Iterator End, Comparator comparator = Comparator())
-#define EDGE_SIZE 5
 {
-    if (!(Begin < End))
+    if (Begin >= End)
     {
         return;
     }
     else
     {
-        if (End - Begin <= EDGE_SIZE)
+        if (End - Begin <= CUT_OFF)
         {
             SortInsertionManualCopy(Begin, End, comparator);
             return;
         }
 
         Iterator Left = Begin, Right = End - 1;
-        std::default_random_engine localGen;
-        std::uniform_int_distribution<int> MiddleRnd(0, End - Begin - 1);
-        typename std::iterator_traits<Iterator>::value_type Middle = *(Begin + MiddleRnd(localGen));
+        std::uniform_int_distribution<size_t> MiddleRnd(0, End - Begin - 1);
+        typename std::iterator_traits<Iterator>::value_type Middle = *(Begin + MiddleRnd(QuickSortLocalGen));
 
         do
         {
@@ -165,21 +159,19 @@ void SortQuick(Iterator Begin, Iterator End, Comparator comparator = Comparator(
             SortQuick(Begin, Right + 1, comparator);
 
     }
-    return;
 }
 
-template <typename SrcIterator, typename DstIterator, typename Comparator=std::less
-          <typename std::iterator_traits<SrcIterator>::value_type>>
+template <typename SrcIterator, typename DstIterator, typename Comparator>
 DstIterator MergeSubArrays(SrcIterator FirstBegin, SrcIterator FirstEnd,
                            SrcIterator SecondBegin, SrcIterator SecondEnd, DstIterator target,
-                           Comparator comparator = Comparator())
+                           Comparator comparator)
 {
     DstIterator Result = target + (FirstEnd - FirstBegin) + (SecondEnd - SecondBegin);
     while ((FirstBegin != FirstEnd)&&(SecondBegin != SecondEnd))
     {
-        if (comparator(*FirstBegin, *SecondBegin))
-            *(target++) = *(FirstBegin++);
-        else *(target++) = *(SecondBegin++);
+        if (comparator(*SecondBegin, *FirstBegin))
+            *(target++) = *(SecondBegin++);
+        else *(target++) = *(FirstBegin++);
     }
 
     std::copy(SecondBegin, SecondEnd, target);
@@ -207,8 +199,6 @@ void SortMergeRec(Iterator Begin, Iterator End, Comparator comparator = Comparat
         MergeSubArrays(Begin, Middle + 1, Middle + 1, End, buffer.begin(), comparator);
         std::copy(buffer.begin(), buffer.end(), Begin);
     }
-
-    return;
 }
 
 template<typename Iterator, typename Comparator=std::less
@@ -230,8 +220,6 @@ void SortMergeIteration(Iterator Begin, Iterator End, Comparator comparator = Co
 
         std::copy(buffer.begin(), buffer.end(), Begin);
 	}
-
-    return;
 }
 
 template <typename Container>
@@ -249,23 +237,27 @@ bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iter
     if ((testEnd - testBegin) != (perfEnd - perfBegin))
         return false;
 
-    while ((testBegin != testEnd)&&(!((*testBegin < *perfBegin) || (*perfBegin < *testBegin))))
+    while (testBegin != testEnd)
     {
-        ++testBegin;
-        ++perfBegin;
+        if (((*testBegin < *perfBegin) || (*perfBegin < *testBegin)))
+            return false;
+        else
+        {
+            ++testBegin;
+            ++perfBegin;
+        }
     }
 
-    return (testBegin == testEnd)? true : false;
+    return true;
 }
 
 template <typename Container, typename Gen>
 bool TestSort(size_t length, const Gen &gen, std::chrono::duration<double> &workTime)
 {
-    typedef typename Container::value_type Value;
     Container data;
     Reserve (data, length);
 
-    for (size_t i = 0; i < length; i++)
+    for (size_t i = 0; i < length; ++i)
     {
         data.push_back(gen());
     }
@@ -274,7 +266,7 @@ bool TestSort(size_t length, const Gen &gen, std::chrono::duration<double> &work
     std::sort(perfect.begin(), perfect.end());
 
     auto TStart = std::chrono::steady_clock::now();
-    SortInsertionManualCopy(data.begin(), data.end());
+    SortQuick(data.begin(), data.end());
     auto TEnd = std::chrono::steady_clock::now();
 
     workTime = TEnd - TStart;
@@ -288,7 +280,7 @@ void RunTestSortAll(size_t testNumber, Gen const &gen, GenLength const &genLengt
     std::chrono::duration<double> Time;
     bool success = true;
 
-    for (size_t i = 0; i <= testNumber; i++)
+    for (size_t i = 0; i <= testNumber; ++i)
     {
         size_t localLength = genLength();
 
@@ -310,13 +302,12 @@ void RunTestSortAll(size_t testNumber, Gen const &gen, GenLength const &genLengt
     if (success)
         std::cout << std::endl << "ALL TESTES PASSED SUCCESSFULLY." << std::endl;
 
-    return;
 }
 
 int main()
 {
     std::default_random_engine generator;
-    std::uniform_int_distribution<unsigned> Lengths(0, 100000);
+    std::uniform_int_distribution<size_t> Lengths(0, 10000);
     std::uniform_int_distribution<int> Values(1, 1000000);
 
     auto genAutoLen=[&](){return Lengths(generator);};
@@ -328,7 +319,6 @@ int main()
     std::uniform_int_distribution<int> Values1_10(1, 10);
     auto genTest1=[&](){return Values1_10(generator);};
     RunTestSortAll <std::vector<int>, decltype(genTest1), decltype(genAutoLen)>(TEST_NUMBER, genTest1, genAutoLen);
-    return 0;
 
 /**************************** vector<double> ***************************************************************************/
 
@@ -343,8 +333,8 @@ int main()
 
     std::cout << "TEST : vector<X> - std::string Key" << std::endl << std::endl;
 
-    std::uniform_int_distribution<int> ValuesChar(1, 255);
-    std::uniform_int_distribution<int> ValuesStrLength(0, 1000);
+    std::uniform_int_distribution<char> ValuesChar('a', 'z');
+    std::uniform_int_distribution<size_t> ValuesStrLength(0, 20);
 
     auto generateStr=[&](){
                             int lengthStr = ValuesStrLength(generator);
@@ -352,6 +342,7 @@ int main()
                             MyStruct element;
                             element.Key = "";
                             element.Value = ValuesReal(generator);
+                            element.Key.reserve(lengthStr);
 
                             for (int i = 0; i <= lengthStr; i++)
                                 element.Key += char(ValuesChar(generator));
