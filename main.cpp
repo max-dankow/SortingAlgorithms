@@ -46,7 +46,7 @@ void SortInsertionManualCopy(Iterator Begin, Iterator End, const Comparator &com
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
-void SortInsertionSTLCopy(Iterator Begin, Iterator End, Comparator comparator = Comparator())
+void SortInsertionSTLCopy(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
 {
     if (Begin >= End)
     {
@@ -72,7 +72,7 @@ void SortInsertionSTLCopy(Iterator Begin, Iterator End, Comparator comparator = 
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
-void SortSelection(Iterator Begin, Iterator End, Comparator comparator = Comparator())
+void SortSelection(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
 {
     if (Begin >= End)
     {
@@ -117,7 +117,7 @@ const size_t CUT_OFF = 25;
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
-void SortQuick(Iterator Begin, Iterator End, Comparator comparator = Comparator())
+void SortQuick(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
 {
     if (Begin >= End)
     {
@@ -182,7 +182,7 @@ DstIterator MergeSubArrays(SrcIterator FirstBegin, SrcIterator FirstEnd,
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
-void SortMergeRec(Iterator Begin, Iterator End, Comparator comparator = Comparator())
+void SortMergeRec(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
 {
     if (End - Begin < 2)
     {
@@ -203,7 +203,7 @@ void SortMergeRec(Iterator Begin, Iterator End, Comparator comparator = Comparat
 
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
-void SortMergeIteration(Iterator Begin, Iterator End, Comparator comparator = Comparator())
+void SortMergeIteration(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
 {
 	std::vector<typename std::iterator_traits<Iterator>::value_type> buffer (End-Begin);
 
@@ -266,7 +266,7 @@ bool TestSort(size_t length, const Gen &gen, std::chrono::duration<double> &work
     std::sort(perfect.begin(), perfect.end());
 
     auto TStart = std::chrono::steady_clock::now();
-    SortQuick(data.begin(), data.end());
+    SortHeap(data.begin(), data.end());
     auto TEnd = std::chrono::steady_clock::now();
 
     workTime = TEnd - TStart;
