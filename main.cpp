@@ -234,7 +234,7 @@ void Reserve(std::vector<Value> &c, size_t n)
 template <typename Iterator>
 bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd)
 {
-    if ((testEnd - testBegin) != (perfEnd - perfBegin))
+    if ((testEnd - testBegin) != (perfEnd - perfBegin)) //solve this problem
         return false;
 
     while (testBegin != testEnd)
