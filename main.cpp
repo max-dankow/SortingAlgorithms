@@ -251,8 +251,8 @@ bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iter
     return true;
 }
 
-template <typename Container, typename Gen>
-bool TestSort(size_t length, const Gen &gen, std::chrono::duration<double> &workTime)
+template <typename SortFunc, typename Container, typename Gen>
+bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chrono::duration<double> &workTime)
 {
     Container data;
     Reserve (data, length);
@@ -263,10 +263,10 @@ bool TestSort(size_t length, const Gen &gen, std::chrono::duration<double> &work
     }
 
     Container perfect = data;
-    std::sort(perfect.begin(), perfect.end());
+    std::stable_sort(perfect.begin(), perfect.end());
 
     auto TStart = std::chrono::steady_clock::now();
-    SortHeap(data.begin(), data.end());
+    sortFunc(data);
     auto TEnd = std::chrono::steady_clock::now();
 
     workTime = TEnd - TStart;
@@ -274,8 +274,8 @@ bool TestSort(size_t length, const Gen &gen, std::chrono::duration<double> &work
     return CheckCorrect(data.begin(), data.end(), perfect.begin(), perfect.end());
 }
 
-template <typename Container, typename Gen, typename GenLength>
-void RunTestSortAll(size_t testNumber, Gen const &gen, GenLength const &genLength)
+template <typename SortFunc, typename Container, typename Gen, typename GenLength>
+void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength)
 {
     std::chrono::duration<double> Time;
     bool success = true;
@@ -284,7 +284,7 @@ void RunTestSortAll(size_t testNumber, Gen const &gen, GenLength const &genLengt
     {
         size_t localLength = genLength();
 
-        if (!TestSort<Container, Gen> (localLength, gen, Time))
+        if (!TestSort<SortFunc, Container, Gen> (sortFunc, localLength, gen, Time))
         {
             std::cout << "[-] Error: not correct! Time: ";
             std::cout << Time.count() << " ms. Length is " << localLength << std::endl;
@@ -304,85 +304,54 @@ void RunTestSortAll(size_t testNumber, Gen const &gen, GenLength const &genLengt
 
 }
 
+/*template <typename SortFunc>
+void TEST(const SortFunc &sortFunc)
+{
+    std::vector<int> data(10,0);
+    std::default_random_engine gen;
+    std::uniform_int_distribution<int> Val(0, 10000);
+
+    for (auto it = data.begin(); it != data.end(); ++it)
+        *it = Val(gen);
+
+    for (auto it = data.begin(); it != data.end(); ++it)
+        std::cout << *it << ' ';
+
+    std::cout << std::endl;
+    sortFunc(data);
+
+    for (auto it = data.begin(); it != data.end(); ++it)
+        std::cout << *it << ' ';
+}*/
+
 int main()
 {
     std::default_random_engine generator;
     std::uniform_int_distribution<size_t> Lengths(0, 10000);
     std::uniform_int_distribution<int> Values(1, 1000000);
 
-    auto genAutoLen=[&](){return Lengths(generator);};
+    //auto genAutoLen=[&](){return Lengths(generator);};
 
-/*************************** vector<int> 1..10 *************************************************************************/
+    //vector<int>
 
+    /*std::cout << "TEST : vector<int> 1..10" << std::endl << std::endl;
+
+    std::uniform_int_distribution<int> Values1_10(1, 10);
+    auto genTest1 = [&](){return Values1_10(generator);};*/
+
+    auto testHeap = [](std::vector<int> &v){SortHeap(v.begin(), v.end());};
+    auto testMerge= [](std::vector<int> &v){SortMergeRec(v.begin(), v.end());};
+
+    std::chrono::duration<double> Time;
     std::cout << "TEST : vector<int> 1..10" << std::endl << std::endl;
 
     std::uniform_int_distribution<int> Values1_10(1, 10);
+    auto genAutoLen=[&](){return Lengths(generator);};
     auto genTest1=[&](){return Values1_10(generator);};
-    RunTestSortAll <std::vector<int>, decltype(genTest1), decltype(genAutoLen)>(TEST_NUMBER, genTest1, genAutoLen);
 
-/**************************** vector<double> ***************************************************************************/
+    RunTestSortAll <decltype(testHeap), std::vector<int>, decltype(genTest1), decltype(genAutoLen)>
+        (testHeap, TEST_NUMBER, genTest1, genAutoLen);
 
-    std::cout << "TEST : vector<double>" << std::endl << std::endl;
-
-    std::uniform_real_distribution<double> ValuesReal(1, 100000);
-    auto genTest2=[&](){return ValuesReal(generator);};
-    RunTestSortAll <std::vector<double>, decltype(genTest2), decltype(genAutoLen)>(TEST_NUMBER, genTest2, genAutoLen);
-
-
-/*************************** vector<X> - std::string Key*****************************************************************/
-
-    std::cout << "TEST : vector<X> - std::string Key" << std::endl << std::endl;
-
-    std::uniform_int_distribution<char> ValuesChar('a', 'z');
-    std::uniform_int_distribution<size_t> ValuesStrLength(0, 20);
-
-    auto generateStr=[&](){
-                            int lengthStr = ValuesStrLength(generator);
-
-                            MyStruct element;
-                            element.Key = "";
-                            element.Value = ValuesReal(generator);
-                            element.Key.reserve(lengthStr);
-
-                            for (int i = 0; i <= lengthStr; i++)
-                                element.Key += char(ValuesChar(generator));
-
-                            return element;
-                          };
-
-    RunTestSortAll <std::vector<MyStruct>, decltype(generateStr), decltype(genAutoLen)>(TEST_NUMBER, generateStr, genAutoLen);
-
-
-/*************************** deque<int>  ****************************************************************************/
-
-    std::cout << "TEST : deque<int>" << std::endl << std::endl;
-
-    auto genTest3=[&](){return Values(generator);};
-    RunTestSortAll <std::deque<int>, decltype(genTest3), decltype(genAutoLen)>(TEST_NUMBER, genTest3, genAutoLen);
-
-
-/*************************** one element *******************************************************************************/
-
-    std::cout << "TEST : one element" << std::endl << std::endl;
-
-    auto genTest4=[&](){return 255;};
-    RunTestSortAll <std::vector<int>, decltype(genTest4), decltype(genAutoLen)>(TEST_NUMBER, genTest4, genAutoLen);
-
-
-/*************************** length = 0, 1, 2, 3 ******************************************************************/
-
-    std::cout << "TEST : length = 0, 1, 2, 3" << std::endl << std::endl;
-
-    auto genTest5=[&](){return Values(generator);};
-    auto genLen0=[&](){return 0;};
-    auto genLen1=[&](){return 1;};
-    auto genLen2=[&](){return 2;};
-    auto genLen3=[&](){return 3;};
-
-    RunTestSortAll <std::vector<int>, decltype(genTest5), decltype(genLen0)>(TEST_NUMBER, genTest5, genLen0);
-    RunTestSortAll <std::vector<int>, decltype(genTest5), decltype(genLen1)>(TEST_NUMBER, genTest5, genLen1);
-    RunTestSortAll <std::vector<int>, decltype(genTest5), decltype(genLen2)>(TEST_NUMBER, genTest5, genLen2);
-    RunTestSortAll <std::vector<int>, decltype(genTest5), decltype(genLen3)>(TEST_NUMBER, genTest5, genLen3);
-
-    return 0;
+    RunTestSortAll <decltype(testMerge), std::vector<int>, decltype(genTest1), decltype(genAutoLen)>
+        (testMerge, TEST_NUMBER, genTest1, genAutoLen);
 }
