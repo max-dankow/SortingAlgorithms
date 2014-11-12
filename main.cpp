@@ -7,7 +7,7 @@
 #include <deque>
 #include <string>
 
-const size_t TEST_NUMBER = 10;
+const size_t TEST_NUMBER = 100;
 
 struct MyStruct
 {
@@ -234,7 +234,7 @@ void Reserve(std::vector<Value> &c, size_t n)
 template <typename Iterator>
 bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd)
 {
-    if ((testEnd - testBegin) != (perfEnd - perfBegin)) //solve this problem
+    if ((testEnd - testBegin) != (perfEnd - perfBegin))
         return false;
 
     while (testBegin != testEnd)
@@ -252,7 +252,7 @@ bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iter
 }
 
 template <typename SortFunc, typename Container, typename Gen>
-bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chrono::duration<double> &workTime)
+bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chrono::milliseconds &workTime)
 {
     Container data;
     Reserve (data, length);
@@ -269,20 +269,25 @@ bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chro
     sortFunc(data);
     auto TEnd = std::chrono::steady_clock::now();
 
-    workTime = TEnd - TStart;
+    std::chrono::duration<double> Duration = TEnd - TStart;
+
+    workTime = std::chrono::milliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(TEnd - TStart).count());
 
     return CheckCorrect(data.begin(), data.end(), perfect.begin(), perfect.end());
 }
 
 template <typename SortFunc, typename Container, typename Gen, typename GenLength>
-void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength)
+void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength,
+                    const std::string message, std::chrono::milliseconds &averageTime)
 {
-    std::chrono::duration<double> Time;
+    std::chrono::milliseconds Time;
+    averageTime = std::chrono::milliseconds (0);
     bool success = true;
 
-    for (size_t i = 0; i <= testNumber; ++i)
+    for (size_t i = 0; i <= testNumber - 1; ++i)
     {
         size_t localLength = genLength();
+        std::cout << message << ": ";
 
         if (!TestSort<SortFunc, Container, Gen> (sortFunc, localLength, gen, Time))
         {
@@ -295,12 +300,15 @@ void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, 
         {
             std::cout << "[+] All right. Time: ";
             std::cout << Time.count() << " ms. Length is " << localLength << std::endl;
+            averageTime += Time;
         }
 
     }
 
+    averageTime /= testNumber;
+
     if (success)
-        std::cout << std::endl << "ALL TESTES PASSED SUCCESSFULLY." << std::endl;
+        std::cout << std::endl << "ALL TESTES PASSED SUCCESSFULLY. AVERAGE TIME IS " << averageTime.count() << std::endl;
 
 }
 
@@ -327,7 +335,7 @@ void TEST(const SortFunc &sortFunc)
 int main()
 {
     std::default_random_engine generator;
-    std::uniform_int_distribution<size_t> Lengths(0, 10000);
+    std::uniform_int_distribution<size_t> Lengths(0, 100000);
     std::uniform_int_distribution<int> Values(1, 1000000);
 
     //auto genAutoLen=[&](){return Lengths(generator);};
@@ -340,9 +348,9 @@ int main()
     auto genTest1 = [&](){return Values1_10(generator);};*/
 
     auto testHeap = [](std::vector<int> &v){SortHeap(v.begin(), v.end());};
-    auto testMerge= [](std::vector<int> &v){SortMergeRec(v.begin(), v.end());};
+    auto testMerge= [](std::vector<int> &v){SortMergeIteration(v.begin(), v.end());};
 
-    std::chrono::duration<double> Time;
+    std::chrono::milliseconds Time;
     std::cout << "TEST : vector<int> 1..10" << std::endl << std::endl;
 
     std::uniform_int_distribution<int> Values1_10(1, 10);
@@ -350,8 +358,8 @@ int main()
     auto genTest1=[&](){return Values1_10(generator);};
 
     RunTestSortAll <decltype(testHeap), std::vector<int>, decltype(genTest1), decltype(genAutoLen)>
-        (testHeap, TEST_NUMBER, genTest1, genAutoLen);
+        (testHeap, TEST_NUMBER, genTest1, genAutoLen, "HeapSort - vector<int>", Time);
 
     RunTestSortAll <decltype(testMerge), std::vector<int>, decltype(genTest1), decltype(genAutoLen)>
-        (testMerge, TEST_NUMBER, genTest1, genAutoLen);
+        (testMerge, TEST_NUMBER, genTest1, genAutoLen, "MergeSortIt - vector<int>", Time);
 }
