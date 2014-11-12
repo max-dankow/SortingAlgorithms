@@ -7,8 +7,6 @@
 #include <deque>
 #include <string>
 
-const size_t TEST_NUMBER = 100;
-
 struct MyStruct
 {
     std::string Key;
@@ -269,8 +267,6 @@ bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chro
     sortFunc(data);
     auto TEnd = std::chrono::steady_clock::now();
 
-    std::chrono::duration<double> Duration = TEnd - TStart;
-
     workTime = std::chrono::milliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(TEnd - TStart).count());
 
     return CheckCorrect(data.begin(), data.end(), perfect.begin(), perfect.end());
@@ -308,58 +304,52 @@ void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, 
     averageTime /= testNumber;
 
     if (success)
-        std::cout << std::endl << "ALL TESTES PASSED SUCCESSFULLY. AVERAGE TIME IS " << averageTime.count() << std::endl;
+    {
+        std::cout << std::endl << "ALL TESTES PASSED SUCCESSFULLY. AVERAGE TIME IS "
+            << averageTime.count() << std::endl << std::endl;
+    }
 
 }
-
-/*template <typename SortFunc>
-void TEST(const SortFunc &sortFunc)
-{
-    std::vector<int> data(10,0);
-    std::default_random_engine gen;
-    std::uniform_int_distribution<int> Val(0, 10000);
-
-    for (auto it = data.begin(); it != data.end(); ++it)
-        *it = Val(gen);
-
-    for (auto it = data.begin(); it != data.end(); ++it)
-        std::cout << *it << ' ';
-
-    std::cout << std::endl;
-    sortFunc(data);
-
-    for (auto it = data.begin(); it != data.end(); ++it)
-        std::cout << *it << ' ';
-}*/
 
 int main()
 {
     std::default_random_engine generator;
-    std::uniform_int_distribution<size_t> Lengths(0, 100000);
-    std::uniform_int_distribution<int> Values(1, 1000000);
-
-    //auto genAutoLen=[&](){return Lengths(generator);};
-
-    //vector<int>
-
-    /*std::cout << "TEST : vector<int> 1..10" << std::endl << std::endl;
-
-    std::uniform_int_distribution<int> Values1_10(1, 10);
-    auto genTest1 = [&](){return Values1_10(generator);};*/
-
-    auto testHeap = [](std::vector<int> &v){SortHeap(v.begin(), v.end());};
-    auto testMerge= [](std::vector<int> &v){SortMergeIteration(v.begin(), v.end());};
-
     std::chrono::milliseconds Time;
-    std::cout << "TEST : vector<int> 1..10" << std::endl << std::endl;
 
-    std::uniform_int_distribution<int> Values1_10(1, 10);
-    auto genAutoLen=[&](){return Lengths(generator);};
-    auto genTest1=[&](){return Values1_10(generator);};
+    {//vector<int> 1..10
+    const size_t TEST_NUMBER = 10;
+    std::uniform_int_distribution<int> Values(1, 10);
+    std::uniform_int_distribution<size_t> Lengths(0, 10000);
+    auto genLen=[&](){return Lengths(generator);};
+    auto genTest=[&](){return Values(generator);};
 
-    RunTestSortAll <decltype(testHeap), std::vector<int>, decltype(genTest1), decltype(genAutoLen)>
-        (testHeap, TEST_NUMBER, genTest1, genAutoLen, "HeapSort - vector<int>", Time);
+    auto testInsMCpy = [](std::vector<int> &v){SortInsertionManualCopy(v.begin(), v.end());};
+    auto testInsSTLCpy = [](std::vector<int> &v){SortInsertionSTLCopy(v.begin(), v.end());};
+    auto testSelection = [](std::vector<int> &v){SortSelection(v.begin(), v.end());};
+    auto testHeap = [](std::vector<int> &v){SortHeap(v.begin(), v.end());};
+    auto testMergeIt= [](std::vector<int> &v){SortMergeIteration(v.begin(), v.end());};
+    auto testMergeRec= [](std::vector<int> &v){SortMergeRec(v.begin(), v.end());};
+    auto testQuick = [](std::vector<int> &v){SortQuick(v.begin(), v.end());};
 
-    RunTestSortAll <decltype(testMerge), std::vector<int>, decltype(genTest1), decltype(genAutoLen)>
-        (testMerge, TEST_NUMBER, genTest1, genAutoLen, "MergeSortIt - vector<int>", Time);
+    RunTestSortAll <decltype(testInsMCpy), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testInsMCpy, TEST_NUMBER, genTest, genLen, "InsertionMCpy - vector<int>", Time);
+
+    RunTestSortAll <decltype(testInsSTLCpy), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testInsSTLCpy, TEST_NUMBER, genTest, genLen, "InsertionSTLCpy - vector<int>", Time);
+
+    RunTestSortAll <decltype(testSelection), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testSelection, TEST_NUMBER, genTest, genLen, "Selection - vector<int>", Time);
+
+    RunTestSortAll <decltype(testQuick), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testQuick, TEST_NUMBER, genTest, genLen, "QuickSort - vector<int>", Time);
+
+    RunTestSortAll <decltype(testHeap), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testHeap, TEST_NUMBER, genTest, genLen, "HeapSort - vector<int>", Time);
+
+    RunTestSortAll <decltype(testMergeIt), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testMergeIt, TEST_NUMBER, genTest, genLen, "MergeSortIt - vector<int>", Time);
+
+    RunTestSortAll <decltype(testMergeRec), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - vector<int>", Time);
+    }
 }
