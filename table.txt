@@ -1,0 +1,39 @@
+vector<int> 1..10
+Sorting \ N =              100      1000     10000    100000   1000000
+InsertionMCpy                0        16      1536       ---       ---
+InsertionSTLCpy              0         8       864       ---       ---
+Selection                    0        10      1084       ---       ---
+QuickSort                    0         0         4        54       612
+HeapSort                     0         0        10       151      1708
+MergeSortIt                  0         0        10       125      1459
+MergeSortRec                 0         1        17       207      2263
+
+vector<double>
+Sorting \ N =              100      1000     10000    100000   1000000
+InsertionMCpy                0        17      1786       ---       ---
+InsertionSTLCpy              0        10       998       ---       ---
+Selection                    0        12      1163       ---       ---
+QuickSort                    0         0         7        79       899
+HeapSort                     0         0        10       140      1859
+MergeSortIt                  0         0        12       143      1686
+MergeSortRec                 0         1        28       220      2449
+
+vector<MyStruct>
+Sorting \ N =              100      1000     10000    100000   1000000
+InsertionMCpy                0        93      9600       ---       ---
+InsertionSTLCpy              0        29      2837       ---       ---
+Selection             99999999  99999999  99999999       ---       ---
+QuickSort             99999999  99999999  99999999  99999999  99999999
+HeapSort              99999999  99999999  99999999  99999999  99999999
+MergeSortIt                  0         2        27       389      5017
+MergeSortRec                 0         4        70       820     10198
+
+deque<int>
+Sorting \ N =              100      1000     10000    100000   1000000
+InsertionMCpy                0        50      5259       ---       ---
+InsertionSTLCpy              0        28      2794       ---       ---
+Selection                    0        20      1255       ---       ---
+QuickSort                    0         0        11        87       938
+HeapSort                     0         3        62       753      9492
+MergeSortIt                  0         1        22       257      2762
+MergeSortRec                 0         3        33       363      3926
