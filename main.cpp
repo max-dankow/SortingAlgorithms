@@ -7,6 +7,9 @@
 #include <deque>
 #include <string>
 
+#include "AllMySorting.h"
+#include "TestingSort.h"
+
 struct MyStruct
 {
     std::string Key;
@@ -26,305 +29,6 @@ struct CompareMyStruct
     }
 };
 
-CompareMyStruct MyStructCmp;
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortInsertionManualCopy(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-    if (Begin >= End)
-    {
-        return;
-    }
-    else
-    {
-
-        for (Iterator it = Begin; it != End; ++it)
-        {
-
-            for (Iterator moveIt = it; (moveIt != Begin) && ( comparator (*moveIt, *(moveIt-1))); --moveIt)
-            {
-                std::swap(*moveIt, *(moveIt-1));
-            }
-
-        }
-
-    }
-}
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortInsertionSTLCopy(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-    if (Begin >= End)
-    {
-        return;
-    }
-    else
-    {
-
-        for (Iterator it = Begin; it != End; ++it)
-        {
-            typename std::iterator_traits<Iterator>::value_type rememberValue = *it;
-            Iterator moveIt = it;
-
-            while ((moveIt != Begin) && (comparator(*it, *(moveIt - 1))))
-                --moveIt;
-
-            std::copy_backward(moveIt, it, it + 1);
-            *moveIt = rememberValue;
-        }
-
-    }
-}
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortSelection(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-    if (Begin >= End)
-    {
-        return;
-    }
-    else
-    {
-        for (Iterator it = Begin; it != End; ++it)
-        {
-            Iterator MinIt = it;
-
-            for (Iterator Current = it + 1; Current != End; ++Current)
-            {
-                if (comparator(*Current, *MinIt))
-                    MinIt = Current;
-            }
-
-            std::swap(*MinIt, *it);
-        }
-    }
-}
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortHeap(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-    if (Begin >= End)
-    {
-        return;
-    }
-    else
-    {
-        std::make_heap(Begin, End, comparator);
-
-        while (End != Begin)
-            std::pop_heap(Begin, End--, comparator);
-
-    }
-}
-
-std::default_random_engine QuickSortLocalGen;
-const size_t CUT_OFF = 25;
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortQuick(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-    if (Begin >= End)
-    {
-        return;
-    }
-    else
-    {
-        if (End - Begin <= CUT_OFF)
-        {
-            SortInsertionManualCopy(Begin, End, comparator);
-            return;
-        }
-
-        Iterator Left = Begin, Right = End - 1;
-        std::uniform_int_distribution<size_t> MiddleRnd(0, End - Begin - 1);
-        typename std::iterator_traits<Iterator>::value_type Middle = *(Begin + MiddleRnd(QuickSortLocalGen));
-
-        do
-        {
-            while (comparator(*Left, Middle))
-                ++Left;
-
-            while (comparator(Middle, *Right))
-                --Right;
-
-            if (Left <= Right)
-            {
-                std::swap(*Left, *Right);
-                ++Left;
-                --Right;
-            }
-
-        }while(Left < Right);
-
-        if (Left < End)
-            SortQuick(Left, End, comparator);
-
-        if (Begin < Right)
-            SortQuick(Begin, Right + 1, comparator);
-
-    }
-}
-
-template <typename SrcIterator, typename DstIterator, typename Comparator>
-DstIterator MergeSubArrays(SrcIterator FirstBegin, SrcIterator FirstEnd,
-                           SrcIterator SecondBegin, SrcIterator SecondEnd, DstIterator target,
-                           Comparator comparator)
-{
-    DstIterator Result = target + (FirstEnd - FirstBegin) + (SecondEnd - SecondBegin);
-    while ((FirstBegin != FirstEnd)&&(SecondBegin != SecondEnd))
-    {
-        if (comparator(*SecondBegin, *FirstBegin))
-            *(target++) = *(SecondBegin++);
-        else *(target++) = *(FirstBegin++);
-    }
-
-    std::copy(SecondBegin, SecondEnd, target);
-    std::copy(FirstBegin, FirstEnd, target);
-
-    return Result;
-}
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortMergeRec(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-    if (End - Begin < 2)
-    {
-        return;
-    }
-    else
-    {
-        Iterator Middle = Begin + (End - Begin - 1) / 2;
-        std::vector<typename std::iterator_traits<Iterator>::value_type> buffer (End-Begin);
-
-        SortMergeRec(Begin, Middle + 1, comparator);
-        SortMergeRec(Middle + 1, End, comparator);
-
-        MergeSubArrays(Begin, Middle + 1, Middle + 1, End, buffer.begin(), comparator);
-        std::copy(buffer.begin(), buffer.end(), Begin);
-    }
-}
-
-template<typename Iterator, typename Comparator=std::less
-         <typename std::iterator_traits<Iterator>::value_type>>
-void SortMergeIteration(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
-{
-	std::vector<typename std::iterator_traits<Iterator>::value_type> buffer (End-Begin);
-
-	for (std::ptrdiff_t chunk_size = 1; chunk_size < End - Begin; chunk_size *= 2)
-	{
-		auto target = buffer.begin();
-
-		for (Iterator first_begin = Begin; first_begin < End; first_begin += std::min(2 * chunk_size, End - first_begin))
-		{
-			Iterator second_begin = first_begin + std::min(chunk_size, End - first_begin);
-			Iterator second_end = second_begin + std::min(chunk_size, End - second_begin);
-			target = MergeSubArrays(first_begin, second_begin, second_begin, second_end, target, comparator);
-		}
-
-        std::copy(buffer.begin(), buffer.end(), Begin);
-	}
-}
-
-template <typename Container>
-void Reserve(Container &c, size_t n){}
-
-template <typename Value>
-void Reserve(std::vector<Value> &c, size_t n)
-{
-    c.reserve(n);
-}
-
-template <typename Iterator, typename Comparator>
-bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd, const Comparator &comparator)
-{
-    if ((testEnd - testBegin) != (perfEnd - perfBegin))
-        return false;
-
-    while (testBegin != testEnd)
-    {
-        if (!(*testBegin == *perfBegin))
-            return false;
-        else
-        {
-            ++testBegin;
-            ++perfBegin;
-        }
-    }
-
-    return true;
-}
-
-template <typename SortFunc, typename Container, typename Gen, typename Comparator=std::less
-         <typename Container::value_type>>
-bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen,
-              std::chrono::milliseconds &workTime, const Comparator &comparator = Comparator())
-{
-    Container data;
-    Reserve (data, length);
-
-    for (size_t i = 0; i < length; ++i)
-    {
-        data.push_back(gen());
-    }
-
-    Container perfect = data;
-    std::stable_sort(perfect.begin(), perfect.end(), comparator);
-
-    auto TStart = std::chrono::steady_clock::now();
-    sortFunc(data);
-    auto TEnd = std::chrono::steady_clock::now();
-
-    workTime = std::chrono::milliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(TEnd - TStart).count());
-
-    return CheckCorrect(data.begin(), data.end(), perfect.begin(), perfect.end(), comparator);
-}
-
-template <typename SortFunc, typename Container, typename Gen, typename GenLength,
-         typename Comparator=std::less<typename Container::value_type>>
-void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength,
-                    const std::string message, std::chrono::milliseconds &averageTime, const Comparator &comparator = Comparator())
-{
-    std::chrono::milliseconds Time;
-    averageTime = std::chrono::milliseconds (0);
-    bool success = true;
-
-    for (size_t i = 0; i <= testNumber - 1; ++i)
-    {
-        size_t localLength = genLength();
-        std::cout << message << ": ";
-
-        if (!TestSort<SortFunc, Container, Gen> (sortFunc, localLength, gen, Time, comparator))
-        {
-            std::cout << "[-] Error: not correct! Time: ";
-            std::cout << Time.count() << " ms. Length is " << localLength << std::endl;
-            success = false;
-            break;
-        }
-        else
-        {
-            std::cout << "[+] All right. Time: ";
-            std::cout << Time.count() << " ms. Length is " << localLength << std::endl;
-            averageTime += Time;
-        }
-
-    }
-
-    averageTime /= testNumber;
-
-    if (success)
-    {
-        std::cout << std::endl << "ALL TESTES PASSED SUCCESSFULLY. AVERAGE TIME IS "
-            << averageTime.count() << std::endl << std::endl;
-    }
-
-}
-
 int main()
 {
     std::default_random_engine generator;
@@ -333,9 +37,10 @@ int main()
     {//vector<int> 1..10
     const size_t TEST_NUMBER = 10;
     std::uniform_int_distribution<int> Values(1, 10);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 6000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){return Values(generator);};
+
 
     auto testInsMCpy = [](std::vector<int> &v){SortInsertionManualCopy(v.begin(), v.end());};
     auto testInsSTLCpy = [](std::vector<int> &v){SortInsertionSTLCopy(v.begin(), v.end());};
@@ -370,7 +75,7 @@ int main()
     {//vector<double>
     const size_t TEST_NUMBER = 10;
     std::uniform_real_distribution<double> Values(-1000, 1000);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 6000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){return Values(generator);};
 
@@ -409,7 +114,7 @@ int main()
     std::uniform_int_distribution<size_t> Values(1, 10);
     std::uniform_int_distribution<char> ValuesChar('a', 'z');
     std::uniform_int_distribution<size_t> ValuesStrLength(0, 20);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 6000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){
                         int lengthStr = ValuesStrLength(generator);
@@ -425,40 +130,40 @@ int main()
                         return element;
                         };
 
-    auto testInsMCpy = [](std::vector<MyStruct> &v){SortInsertionManualCopy(v.begin(), v.end(), MyStructCmp);};
-    auto testInsSTLCpy = [](std::vector<MyStruct> &v){SortInsertionSTLCopy(v.begin(), v.end(), MyStructCmp);};
-    auto testSelection = [](std::vector<MyStruct> &v){SortSelection(v.begin(), v.end(), MyStructCmp);};
-    auto testHeap = [](std::vector<MyStruct> &v){SortHeap(v.begin(), v.end(), MyStructCmp);};
-    auto testMergeIt= [](std::vector<MyStruct> &v){SortMergeIteration(v.begin(), v.end(), MyStructCmp);};
-    auto testMergeRec= [](std::vector<MyStruct> &v){SortMergeRec(v.begin(), v.end(), MyStructCmp);};
-    auto testQuick = [](std::vector<MyStruct> &v){SortQuick(v.begin(), v.end(), MyStructCmp);};
+    auto testInsMCpy = [](std::vector<MyStruct> &v){SortInsertionManualCopy(v.begin(), v.end(), CompareMyStruct());};
+    auto testInsSTLCpy = [](std::vector<MyStruct> &v){SortInsertionSTLCopy(v.begin(), v.end(), CompareMyStruct());};
+    auto testSelection = [](std::vector<MyStruct> &v){SortSelection(v.begin(), v.end(), CompareMyStruct());};
+    auto testHeap = [](std::vector<MyStruct> &v){SortHeap(v.begin(), v.end(), CompareMyStruct());};
+    auto testMergeIt= [](std::vector<MyStruct> &v){SortMergeIteration(v.begin(), v.end(), CompareMyStruct());};
+    auto testMergeRec= [](std::vector<MyStruct> &v){SortMergeRec(v.begin(), v.end(), CompareMyStruct());};
+    auto testQuick = [](std::vector<MyStruct> &v){SortQuick(v.begin(), v.end(), CompareMyStruct());};
 
     RunTestSortAll <decltype(testInsMCpy), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testInsMCpy, TEST_NUMBER, genTest, genLen, "InsertionMCpy - vector<MyStruct>", Time, MyStructCmp);
+        (testInsMCpy, TEST_NUMBER, genTest, genLen, "InsertionMCpy - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testInsSTLCpy), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testInsSTLCpy, TEST_NUMBER, genTest, genLen, "InsertionSTLCpy - vector<MyStruct>", Time, MyStructCmp);
+        (testInsSTLCpy, TEST_NUMBER, genTest, genLen, "InsertionSTLCpy - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testSelection), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testSelection, TEST_NUMBER, genTest, genLen, "Selection - vector<MyStruct>", Time, MyStructCmp);
+        (testSelection, TEST_NUMBER, genTest, genLen, "Selection - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testQuick), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testQuick, TEST_NUMBER, genTest, genLen, "QuickSort - vector<MyStruct>", Time, MyStructCmp);
+        (testQuick, TEST_NUMBER, genTest, genLen, "QuickSort - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testHeap), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testHeap, TEST_NUMBER, genTest, genLen, "HeapSort - vector<MyStruct>", Time, MyStructCmp);
+        (testHeap, TEST_NUMBER, genTest, genLen, "HeapSort - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testMergeIt), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testMergeIt, TEST_NUMBER, genTest, genLen, "MergeSortIt - vector<MyStruct>", Time, MyStructCmp);
+        (testMergeIt, TEST_NUMBER, genTest, genLen, "MergeSortIt - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testMergeRec), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - vector<MyStruct>", Time, MyStructCmp);
+        (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - vector<MyStruct>", Time, CompareMyStruct());
     }
 
     {//deque<int>
     const size_t TEST_NUMBER = 10;
     std::uniform_int_distribution<int> Values(1, 1000);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 6000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){return Values(generator);};
 
@@ -492,4 +197,5 @@ int main()
         (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - deque<int> ", Time);
     }
 
+    return 0;
 }
