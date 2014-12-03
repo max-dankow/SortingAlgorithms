@@ -1,4 +1,4 @@
-vector<int> 1..10
+vector<int>
 Sorting \ N =              100      1000     10000    100000   1000000
 InsertionMCpy                0        17      1487       ---       ---
 InsertionSTLCpy              0         8       863       ---       ---
@@ -20,7 +20,7 @@ MergeSortIt                  0         0        12       148      1808
 MergeSortRec                 0         2        22       226      2458
 std::sort                    0         0         4        49       596
 
-vector<MyStruct> 1..10
+vector<MyStruct>
 Sorting \ N =              100      1000     10000    100000   1000000
 InsertionMCpy                0        96      9850       ---       ---
 InsertionSTLCpy              0        28      2887       ---       ---
@@ -31,7 +31,7 @@ MergeSortIt                  0         2        28       400      5122
 MergeSortRec                 0         5        68       822     10211
 std::sort                    0         1        21       281      3611
 
-deque<int> 1..10
+deque<int>
 Sorting \ N =              100      1000     10000    100000   1000000
 InsertionMCpy                0        51      5197       ---       ---
 InsertionSTLCpy              0        27      2719       ---       ---
