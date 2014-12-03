@@ -26,8 +26,6 @@ struct CompareMyStruct
     }
 };
 
-CompareMyStruct MyStructCmp;
-
 template<typename Iterator, typename Comparator=std::less
          <typename std::iterator_traits<Iterator>::value_type>>
 void SortInsertionManualCopy(Iterator Begin, Iterator End, const Comparator &comparator = Comparator())
@@ -42,9 +40,12 @@ void SortInsertionManualCopy(Iterator Begin, Iterator End, const Comparator &com
         for (Iterator it = Begin; it != End; ++it)
         {
 
-            for (Iterator moveIt = it; (moveIt != Begin) && ( comparator (*moveIt, *(moveIt-1))); --moveIt)
+            for (Iterator moveIt = it; moveIt != Begin; --moveIt)
             {
-                std::swap(*moveIt, *(moveIt-1));
+                if (!comparator (*moveIt, *(moveIt-1)))
+                    break;
+                else
+                    std::swap(*moveIt, *(moveIt-1));
             }
 
         }
@@ -116,7 +117,10 @@ void SortHeap(Iterator Begin, Iterator End, const Comparator &comparator = Compa
         std::make_heap(Begin, End, comparator);
 
         while (End != Begin)
-            std::pop_heap(Begin, End--, comparator);
+        {
+            std::pop_heap(Begin, End, comparator);
+            --End;
+        }
 
     }
 }
@@ -134,9 +138,9 @@ void SortQuick(Iterator Begin, Iterator End, const Comparator &comparator = Comp
     }
     else
     {
-        if (End - Begin <= CUT_OFF)
+        if ((size_t ) (End - Begin) <= CUT_OFF)
         {
-            SortInsertionManualCopy(Begin, End, comparator);
+            SortInsertionSTLCopy(Begin, End, comparator);
             return;
         }
 
@@ -173,14 +177,15 @@ void SortQuick(Iterator Begin, Iterator End, const Comparator &comparator = Comp
 template <typename SrcIterator, typename DstIterator, typename Comparator>
 DstIterator MergeSubArrays(SrcIterator FirstBegin, SrcIterator FirstEnd,
                            SrcIterator SecondBegin, SrcIterator SecondEnd, DstIterator target,
-                           Comparator comparator)
+                           const Comparator &comparator = Comparator())
 {
     DstIterator Result = target + (FirstEnd - FirstBegin) + (SecondEnd - SecondBegin);
     while ((FirstBegin != FirstEnd)&&(SecondBegin != SecondEnd))
     {
         if (comparator(*SecondBegin, *FirstBegin))
             *(target++) = *(SecondBegin++);
-        else *(target++) = *(FirstBegin++);
+        else
+            *(target++) = *(FirstBegin++);
     }
 
     std::copy(SecondBegin, SecondEnd, target);
@@ -227,7 +232,7 @@ void SortMergeIteration(Iterator Begin, Iterator End, const Comparator &comparat
 			target = MergeSubArrays(first_begin, second_begin, second_begin, second_end, target, comparator);
 		}
 
-        std::copy(buffer.begin(), buffer.end(), Begin);
+		std::copy(buffer.begin(), buffer.end(), Begin);
 	}
 }
 
@@ -240,21 +245,59 @@ void Reserve(std::vector<Value> &c, size_t n)
     c.reserve(n);
 }
 
-template <typename Iterator, typename Comparator>
-bool CheckCorrect(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd, const Comparator &comparator)
+template <typename Iterator>
+Iterator FindElement(Iterator Begin, Iterator End, Iterator KeyIt, const std::vector<bool> &available)
+{
+    size_t i = 0;
+
+    while (Begin != End)
+    {
+        if ((*Begin == *KeyIt) && (!available[i]))
+            return Begin;
+        ++Begin;
+        ++i;
+    }
+
+    return End;
+}
+
+
+template <typename Iterator>
+bool CheckValues(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd)
 {
     if ((testEnd - testBegin) != (perfEnd - perfBegin))
         return false;
 
+    std::vector<bool> flag (testEnd - testBegin, false);
+
     while (testBegin != testEnd)
     {
-        if (!(*testBegin == *perfBegin))
+        Iterator searchResult = FindElement(perfBegin, perfEnd, testBegin, flag);
+        size_t index = searchResult - perfBegin;
+        if (searchResult == perfEnd)
             return false;
         else
         {
-            ++testBegin;
-            ++perfBegin;
+            if (flag[index])
+                return false;
+            else
+                flag[index] = true;
         }
+        ++testBegin;
+    }
+
+    return true;
+}
+
+template <typename Iterator, typename Comparator>
+bool CheckOrder(Iterator testBegin, Iterator testEnd, const Comparator &comparator)
+{
+    while (testBegin + 1 < testEnd)
+    {
+        if (comparator(*(testBegin + 1), *testBegin))
+            return false;
+        else
+            ++testBegin;
     }
 
     return true;
@@ -282,7 +325,10 @@ bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen,
 
     workTime = std::chrono::milliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(TEnd - TStart).count());
 
-    return CheckCorrect(data.begin(), data.end(), perfect.begin(), perfect.end(), comparator);
+    bool Order = CheckOrder(data.begin(), data.end(), comparator);
+    bool Values = CheckValues(data.begin(), data.end(), perfect.begin(), perfect.end());
+
+    return Order && Values;
 }
 
 template <typename SortFunc, typename Container, typename Gen, typename GenLength,
@@ -304,7 +350,7 @@ void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, 
             std::cout << "[-] Error: not correct! Time: ";
             std::cout << Time.count() << " ms. Length is " << localLength << std::endl;
             success = false;
-            break;
+            exit(0);
         }
         else
         {
@@ -325,6 +371,596 @@ void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, 
 
 }
 
+void GenerateTimeTable()
+{
+    const size_t MAX_N = 1000000;
+    const size_t MAX_N_SQR = 10000;
+    const size_t MIN_N = 100;
+
+    FILE *f = std::fopen("table.txt", "w");
+    std::default_random_engine generator;
+    std::chrono::milliseconds Time;
+
+    {//vector<int> 1..10
+    fprintf(f, "vector<int> 1..10\n");
+
+    const size_t TEST_NUMBER[] = {500, 50, 25, 10, 5, 1};
+    std::uniform_int_distribution<int> Values(1, 10);
+    auto genTest=[&](){return Values(generator);};
+
+    auto testInsMCpy = [](std::vector<int> &v){SortInsertionManualCopy(v.begin(), v.end());};
+    auto testInsSTLCpy = [](std::vector<int> &v){SortInsertionSTLCopy(v.begin(), v.end());};
+    auto testSelection = [](std::vector<int> &v){SortSelection(v.begin(), v.end());};
+    auto testHeap = [](std::vector<int> &v){SortHeap(v.begin(), v.end());};
+    auto testMergeIt= [](std::vector<int> &v){SortMergeIteration(v.begin(), v.end());};
+    auto testMergeRec= [](std::vector<int> &v){SortMergeRec(v.begin(), v.end());};
+    auto testQuick = [](std::vector<int> &v){SortQuick(v.begin(), v.end());};
+    auto testStd = [](std::vector<int> &v){std::sort(v.begin(), v.end());};
+
+    fprintf(f, "%-20s", "Sorting \\ N =");
+    for (size_t i = MIN_N; i <= MAX_N; i*=10)
+    {
+        fprintf(f, "%10d", i);
+    }
+
+    fprintf(f, "\n%-20s", "InsertionMCpy");
+
+    size_t n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsMCpy), std::vector<int>, decltype(genTest), decltype(genLen)>
+                (testInsMCpy, TEST_NUMBER[i], genTest, genLen, "InsertionMCpy - vector<int>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "InsertionSTLCpy");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsSTLCpy), std::vector<int>, decltype(genTest), decltype(genLen)>
+                (testInsSTLCpy, TEST_NUMBER[i], genTest, genLen, "InsertionSTLCpy - vector<int>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "Selection");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testSelection), std::vector<int>, decltype(genTest), decltype(genLen)>
+                (testSelection, TEST_NUMBER[i], genTest, genLen, "Selection - vector<int>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "QuickSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testQuick), std::vector<int>, decltype(genTest), decltype(genLen)>
+            (testQuick, TEST_NUMBER[i], genTest, genLen, "QuickSort - vector<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "HeapSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testHeap), std::vector<int>, decltype(genTest), decltype(genLen)>
+            (testHeap, TEST_NUMBER[i], genTest, genLen, "HeapSort - vector<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortIt");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeIt), std::vector<int>, decltype(genTest), decltype(genLen)>
+            (testMergeIt, TEST_NUMBER[i], genTest, genLen, "MergeSortIt - vector<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortRec");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeRec), std::vector<int>, decltype(genTest), decltype(genLen)>
+            (testMergeRec, TEST_NUMBER[i], genTest, genLen, "MergeSortRec - vector<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "std::sort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testStd), std::vector<int>, decltype(genTest), decltype(genLen)>
+            (testStd, TEST_NUMBER[i], genTest, genLen, "sdt::sort - vector<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n\n");
+    }
+
+    {//vector<double>
+    fprintf(f, "vector<double>\n");
+
+    const size_t TEST_NUMBER[] = {500, 50, 25, 10, 5, 1};
+    std::uniform_real_distribution<double> Values(-1000, 1000);
+    auto genTest=[&](){return Values(generator);};
+
+    auto testInsMCpy = [](std::vector<double> &v){SortInsertionManualCopy(v.begin(), v.end());};
+    auto testInsSTLCpy = [](std::vector<double> &v){SortInsertionSTLCopy(v.begin(), v.end());};
+    auto testSelection = [](std::vector<double> &v){SortSelection(v.begin(), v.end());};
+    auto testHeap = [](std::vector<double> &v){SortHeap(v.begin(), v.end());};
+    auto testMergeIt= [](std::vector<double> &v){SortMergeIteration(v.begin(), v.end());};
+    auto testMergeRec= [](std::vector<double> &v){SortMergeRec(v.begin(), v.end());};
+    auto testQuick = [](std::vector<double> &v){SortQuick(v.begin(), v.end());};
+    auto testStd = [](std::vector<double> &v){std::sort(v.begin(), v.end());};
+
+    fprintf(f, "%-20s", "Sorting \\ N =");
+    for (size_t i = MIN_N; i <= MAX_N; i*=10)
+    {
+        fprintf(f, "%10d", i);
+    }
+
+    fprintf(f, "\n%-20s", "InsertionMCpy");
+
+    size_t n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsMCpy), std::vector<double>, decltype(genTest), decltype(genLen)>
+                (testInsMCpy, TEST_NUMBER[i], genTest, genLen, "InsertionMCpy - vector<double>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "InsertionSTLCpy");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsSTLCpy), std::vector<double>, decltype(genTest), decltype(genLen)>
+                (testInsSTLCpy, TEST_NUMBER[i], genTest, genLen, "InsertionSTLCpy - vector<double>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "Selection");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testSelection), std::vector<double>, decltype(genTest), decltype(genLen)>
+                (testSelection, TEST_NUMBER[i], genTest, genLen, "Selection - vector<double>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "QuickSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testQuick), std::vector<double>, decltype(genTest), decltype(genLen)>
+            (testQuick, TEST_NUMBER[i], genTest, genLen, "QuickSort - vector<double>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "HeapSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testHeap), std::vector<double>, decltype(genTest), decltype(genLen)>
+            (testHeap, TEST_NUMBER[i], genTest, genLen, "HeapSort - vector<double>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortIt");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeIt), std::vector<double>, decltype(genTest), decltype(genLen)>
+            (testMergeIt, TEST_NUMBER[i], genTest, genLen, "MergeSortIt - vector<double>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortRec");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeRec), std::vector<double>, decltype(genTest), decltype(genLen)>
+            (testMergeRec, TEST_NUMBER[i], genTest, genLen, "MergeSortRec - vector<double>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "std::sort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testStd), std::vector<double>, decltype(genTest), decltype(genLen)>
+            (testStd, TEST_NUMBER[i], genTest, genLen, "std::sort - vector<double>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n\n");
+    }
+
+    {//vector<MyStruct>
+    fprintf(f, "vector<MyStruct> 1..10\n");
+
+    const size_t TEST_NUMBER[] = {500, 50, 25, 10, 5, 1};
+    std::uniform_int_distribution<size_t> Values(1, 10);
+    std::uniform_int_distribution<char> ValuesChar('a', 'z');
+    std::uniform_int_distribution<size_t> ValuesStrLength(0, 20);
+    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    auto genTest=[&](){
+                        int lengthStr = ValuesStrLength(generator);
+
+                        MyStruct element;
+                        element.Key = "";
+                        element.Value = Values(generator);
+                        element.Key.reserve(lengthStr);
+
+                        for (int i = 0; i <= lengthStr; i++)
+                            element.Key += char(ValuesChar(generator));
+
+                        return element;
+                        };
+
+    auto testInsMCpy = [](std::vector<MyStruct> &v){SortInsertionManualCopy(v.begin(), v.end(), CompareMyStruct());};
+    auto testInsSTLCpy = [](std::vector<MyStruct> &v){SortInsertionSTLCopy(v.begin(), v.end(), CompareMyStruct());};
+    auto testSelection = [](std::vector<MyStruct> &v){SortSelection(v.begin(), v.end(), CompareMyStruct());};
+    auto testHeap = [](std::vector<MyStruct> &v){SortHeap(v.begin(), v.end(), CompareMyStruct());};
+    auto testMergeIt= [](std::vector<MyStruct> &v){SortMergeIteration(v.begin(), v.end(), CompareMyStruct());};
+    auto testMergeRec= [](std::vector<MyStruct> &v){SortMergeRec(v.begin(), v.end(), CompareMyStruct());};
+    auto testQuick = [](std::vector<MyStruct> &v){SortQuick(v.begin(), v.end(), CompareMyStruct());};
+    auto testStd = [](std::vector<MyStruct> &v){std::sort(v.begin(), v.end(), CompareMyStruct());};
+
+    fprintf(f, "%-20s", "Sorting \\ N =");
+    for (size_t i = MIN_N; i <= MAX_N; i*=10)
+    {
+        fprintf(f, "%10d", i);
+    }
+
+    fprintf(f, "\n%-20s", "InsertionMCpy");
+
+    size_t n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsMCpy), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+                (testInsMCpy, TEST_NUMBER[i], genTest, genLen, "InsertionMCpy - vector<MyStruct>", Time, CompareMyStruct());
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "InsertionSTLCpy");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsSTLCpy), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+                (testInsSTLCpy, TEST_NUMBER[i], genTest, genLen, "InsertionSTLCpy - vector<MyStruct>", Time, CompareMyStruct());
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "Selection");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testSelection), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+                (testSelection, TEST_NUMBER[i], genTest, genLen, "Selection - vector<MyStruct>", Time, CompareMyStruct());
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "QuickSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testQuick), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+            (testQuick, TEST_NUMBER[i], genTest, genLen, "QuickSort - vector<MyStruct>", Time, CompareMyStruct());
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "HeapSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testHeap), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+            (testHeap, TEST_NUMBER[i], genTest, genLen, "HeapSort - vector<MyStruct>", Time, CompareMyStruct());
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortIt");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeIt), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+            (testMergeIt, TEST_NUMBER[i], genTest, genLen, "MergeSortIt - vector<MyStruct>", Time, CompareMyStruct());
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortRec");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeRec), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+            (testMergeRec, TEST_NUMBER[i], genTest, genLen, "MergeSortRec - vector<MyStruct>", Time, CompareMyStruct());
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "std::sort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testStd), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
+            (testStd, TEST_NUMBER[i], genTest, genLen, "std::sort - vector<MyStruct>", Time, CompareMyStruct());
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n\n");
+    }
+
+    {//deque<int> 1..10
+    fprintf(f, "deque<int> 1..10\n");
+
+    const size_t TEST_NUMBER[] = {500, 50, 25, 10, 5, 1};
+    std::uniform_int_distribution<int> Values(1, 1000);
+    auto genTest=[&](){return Values(generator);};
+
+    auto testInsMCpy = [](std::deque<int>  &v){SortInsertionManualCopy(v.begin(), v.end());};
+    auto testInsSTLCpy = [](std::deque<int>  &v){SortInsertionSTLCopy(v.begin(), v.end());};
+    auto testSelection = [](std::deque<int>  &v){SortSelection(v.begin(), v.end());};
+    auto testHeap = [](std::deque<int>  &v){SortHeap(v.begin(), v.end());};
+    auto testMergeIt= [](std::deque<int>  &v){SortMergeIteration(v.begin(), v.end());};
+    auto testMergeRec= [](std::deque<int>  &v){SortMergeRec(v.begin(), v.end());};
+    auto testQuick = [](std::deque<int>  &v){SortQuick(v.begin(), v.end());};
+    auto testStd = [](std::deque<int> &v){std::sort(v.begin(), v.end());};
+
+    fprintf(f, "%-20s", "Sorting \\ N =");
+    for (size_t i = MIN_N; i <= MAX_N; i*=10)
+    {
+        fprintf(f, "%10d", i);
+    }
+
+    fprintf(f, "\n%-20s", "InsertionMCpy");
+
+    size_t n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsMCpy), std::deque<int>, decltype(genTest), decltype(genLen)>
+                (testInsMCpy, TEST_NUMBER[i], genTest, genLen, "InsertionMCpy - deque<int>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "InsertionSTLCpy");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testInsSTLCpy), std::deque<int>, decltype(genTest), decltype(genLen)>
+                (testInsSTLCpy, TEST_NUMBER[i], genTest, genLen, "InsertionSTLCpy - deque<int>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "Selection");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        if (n <= MAX_N_SQR)
+        {
+            RunTestSortAll <decltype(testSelection), std::deque<int>, decltype(genTest), decltype(genLen)>
+                (testSelection, TEST_NUMBER[i], genTest, genLen, "Selection - deque<int>", Time);
+
+            fprintf(f, "%10I64d", Time.count());
+        }
+        else fprintf(f, "%10s", "---");
+    }
+
+    fprintf(f, "\n%-20s", "QuickSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testQuick), std::deque<int>, decltype(genTest), decltype(genLen)>
+            (testQuick, TEST_NUMBER[i], genTest, genLen, "QuickSort - deque<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "HeapSort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testHeap), std::deque<int>, decltype(genTest), decltype(genLen)>
+            (testHeap, TEST_NUMBER[i], genTest, genLen, "HeapSort - deque<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortIt");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeIt), std::deque<int>, decltype(genTest), decltype(genLen)>
+            (testMergeIt, TEST_NUMBER[i], genTest, genLen, "MergeSortIt - deque<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "MergeSortRec");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testMergeRec), std::deque<int>, decltype(genTest), decltype(genLen)>
+            (testMergeRec, TEST_NUMBER[i], genTest, genLen, "MergeSortRec - deque<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n%-20s", "std::sort");
+
+    n = MIN_N;
+    for (int i = 0; n <= MAX_N; i++, n *= 10)
+    {
+        auto genLen=[n](){return n;};
+
+        RunTestSortAll <decltype(testStd), std::deque<int>, decltype(genTest), decltype(genLen)>
+            (testStd, TEST_NUMBER[i], genTest, genLen, "std::sort - deque<int>", Time);
+
+        fprintf(f, "%10I64d", Time.count());
+    }
+
+    fprintf(f, "\n\n");
+    }
+}
+
 int main()
 {
     std::default_random_engine generator;
@@ -333,7 +969,7 @@ int main()
     {//vector<int> 1..10
     const size_t TEST_NUMBER = 10;
     std::uniform_int_distribution<int> Values(1, 10);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 10000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){return Values(generator);};
 
@@ -370,7 +1006,7 @@ int main()
     {//vector<double>
     const size_t TEST_NUMBER = 10;
     std::uniform_real_distribution<double> Values(-1000, 1000);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 10000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){return Values(generator);};
 
@@ -409,7 +1045,7 @@ int main()
     std::uniform_int_distribution<size_t> Values(1, 10);
     std::uniform_int_distribution<char> ValuesChar('a', 'z');
     std::uniform_int_distribution<size_t> ValuesStrLength(0, 20);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 10000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){
                         int lengthStr = ValuesStrLength(generator);
@@ -425,40 +1061,40 @@ int main()
                         return element;
                         };
 
-    auto testInsMCpy = [](std::vector<MyStruct> &v){SortInsertionManualCopy(v.begin(), v.end(), MyStructCmp);};
-    auto testInsSTLCpy = [](std::vector<MyStruct> &v){SortInsertionSTLCopy(v.begin(), v.end(), MyStructCmp);};
-    auto testSelection = [](std::vector<MyStruct> &v){SortSelection(v.begin(), v.end(), MyStructCmp);};
-    auto testHeap = [](std::vector<MyStruct> &v){SortHeap(v.begin(), v.end(), MyStructCmp);};
-    auto testMergeIt= [](std::vector<MyStruct> &v){SortMergeIteration(v.begin(), v.end(), MyStructCmp);};
-    auto testMergeRec= [](std::vector<MyStruct> &v){SortMergeRec(v.begin(), v.end(), MyStructCmp);};
-    auto testQuick = [](std::vector<MyStruct> &v){SortQuick(v.begin(), v.end(), MyStructCmp);};
+    auto testInsMCpy = [](std::vector<MyStruct> &v){SortInsertionManualCopy(v.begin(), v.end(), CompareMyStruct());};
+    auto testInsSTLCpy = [](std::vector<MyStruct> &v){SortInsertionSTLCopy(v.begin(), v.end(), CompareMyStruct());};
+    auto testSelection = [](std::vector<MyStruct> &v){SortSelection(v.begin(), v.end(), CompareMyStruct());};
+    auto testHeap = [](std::vector<MyStruct> &v){SortHeap(v.begin(), v.end(), CompareMyStruct());};
+    auto testMergeIt= [](std::vector<MyStruct> &v){SortMergeIteration(v.begin(), v.end(), CompareMyStruct());};
+    auto testMergeRec= [](std::vector<MyStruct> &v){SortMergeRec(v.begin(), v.end(), CompareMyStruct());};
+    auto testQuick = [](std::vector<MyStruct> &v){SortQuick(v.begin(), v.end(), CompareMyStruct());};
 
     RunTestSortAll <decltype(testInsMCpy), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testInsMCpy, TEST_NUMBER, genTest, genLen, "InsertionMCpy - vector<MyStruct>", Time, MyStructCmp);
+        (testInsMCpy, TEST_NUMBER, genTest, genLen, "InsertionMCpy - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testInsSTLCpy), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testInsSTLCpy, TEST_NUMBER, genTest, genLen, "InsertionSTLCpy - vector<MyStruct>", Time, MyStructCmp);
+        (testInsSTLCpy, TEST_NUMBER, genTest, genLen, "InsertionSTLCpy - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testSelection), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testSelection, TEST_NUMBER, genTest, genLen, "Selection - vector<MyStruct>", Time, MyStructCmp);
+        (testSelection, TEST_NUMBER, genTest, genLen, "Selection - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testQuick), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testQuick, TEST_NUMBER, genTest, genLen, "QuickSort - vector<MyStruct>", Time, MyStructCmp);
+        (testQuick, TEST_NUMBER, genTest, genLen, "QuickSort - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testHeap), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testHeap, TEST_NUMBER, genTest, genLen, "HeapSort - vector<MyStruct>", Time, MyStructCmp);
+        (testHeap, TEST_NUMBER, genTest, genLen, "HeapSort - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testMergeIt), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testMergeIt, TEST_NUMBER, genTest, genLen, "MergeSortIt - vector<MyStruct>", Time, MyStructCmp);
+        (testMergeIt, TEST_NUMBER, genTest, genLen, "MergeSortIt - vector<MyStruct>", Time, CompareMyStruct());
 
     RunTestSortAll <decltype(testMergeRec), std::vector<MyStruct>, decltype(genTest), decltype(genLen)>
-        (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - vector<MyStruct>", Time, MyStructCmp);
+        (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - vector<MyStruct>", Time, CompareMyStruct());
     }
 
     {//deque<int>
     const size_t TEST_NUMBER = 10;
     std::uniform_int_distribution<int> Values(1, 1000);
-    std::uniform_int_distribution<size_t> Lengths(0, 1000);
+    std::uniform_int_distribution<size_t> Lengths(0, 10000);
     auto genLen=[&](){return Lengths(generator);};
     auto genTest=[&](){return Values(generator);};
 
@@ -490,6 +1126,42 @@ int main()
 
     RunTestSortAll <decltype(testMergeRec), std::deque<int> , decltype(genTest), decltype(genLen)>
         (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - deque<int> ", Time);
+    }
+    for (int i=0; i <= 3; i++)
+    {//Length = 0 1 2 3
+    const size_t TEST_NUMBER = 10;
+    std::uniform_int_distribution<int> Values(1, 10);
+    auto genLen=[&i](){return i;};
+    auto genTest=[&](){return Values(generator);};
+
+    auto testInsMCpy = [](std::vector<int> &v){SortInsertionManualCopy(v.begin(), v.end());};
+    auto testInsSTLCpy = [](std::vector<int> &v){SortInsertionSTLCopy(v.begin(), v.end());};
+    auto testSelection = [](std::vector<int> &v){SortSelection(v.begin(), v.end());};
+    auto testHeap = [](std::vector<int> &v){SortHeap(v.begin(), v.end());};
+    auto testMergeIt= [](std::vector<int> &v){SortMergeIteration(v.begin(), v.end());};
+    auto testMergeRec= [](std::vector<int> &v){SortMergeRec(v.begin(), v.end());};
+    auto testQuick = [](std::vector<int> &v){SortQuick(v.begin(), v.end());};
+
+    RunTestSortAll <decltype(testInsMCpy), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testInsMCpy, TEST_NUMBER, genTest, genLen, "InsertionMCpy - Length", Time);
+
+    RunTestSortAll <decltype(testInsSTLCpy), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testInsSTLCpy, TEST_NUMBER, genTest, genLen, "InsertionSTLCpy - Length", Time);
+
+    RunTestSortAll <decltype(testSelection), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testSelection, TEST_NUMBER, genTest, genLen, "Selection - Length", Time);
+
+    RunTestSortAll <decltype(testQuick), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testQuick, TEST_NUMBER, genTest, genLen, "QuickSort - Length", Time);
+
+    RunTestSortAll <decltype(testHeap), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testHeap, TEST_NUMBER, genTest, genLen, "HeapSort - Length", Time);
+
+    RunTestSortAll <decltype(testMergeIt), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testMergeIt, TEST_NUMBER, genTest, genLen, "MergeSortIt - Length", Time);
+
+    RunTestSortAll <decltype(testMergeRec), std::vector<int>, decltype(genTest), decltype(genLen)>
+        (testMergeRec, TEST_NUMBER, genTest, genLen, "MergeSortRec - Length", Time);
     }
 
 }

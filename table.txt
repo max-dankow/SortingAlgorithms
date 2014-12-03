@@ -1,42 +1,44 @@
 vector<int> 1..10
 Sorting \ N =              100      1000     10000    100000   1000000
-InsertionMCpy                0        16      1536       ---       ---
-InsertionSTLCpy              0         8       864       ---       ---
-Selection                    0        10      1084       ---       ---
-QuickSort                    0         0         4        54       612
-HeapSort                     0         0        10       151      1708
-MergeSortIt                  0         0        10       125      1459
-MergeSortRec                 0         1        17       207      2263
+InsertionMCpy                0        17      1487       ---       ---
+InsertionSTLCpy              0         8       863       ---       ---
+Selection                    0        11      1107       ---       ---
+QuickSort                    0         0         4        53       638
+HeapSort                     0         0        11       139      1746
+MergeSortIt                  0         0        10       127      1470
+MergeSortRec                 0         1        18       205      2283
+std::sort                    0         0         2        38       457
 
 vector<double>
 Sorting \ N =              100      1000     10000    100000   1000000
-InsertionMCpy                0        17      1786       ---       ---
-InsertionSTLCpy              0        10       998       ---       ---
-Selection                    0        12      1163       ---       ---
-QuickSort                    0         0         7        79       899
-HeapSort                     0         0        10       140      1859
-MergeSortIt                  0         0        12       143      1686
-MergeSortRec                 0         1        28       220      2449
+InsertionMCpy                0        17      1733       ---       ---
+InsertionSTLCpy              0        10      1026       ---       ---
+Selection                    0        11      1157       ---       ---
+QuickSort                    0         0         6        80       932
+HeapSort                     0         0        11       145      1890
+MergeSortIt                  0         0        12       148      1808
+MergeSortRec                 0         2        22       226      2458
+std::sort                    0         0         4        49       596
 
-vector<MyStruct>
+vector<MyStruct> 1..10
 Sorting \ N =              100      1000     10000    100000   1000000
-InsertionMCpy                0        93      9600       ---       ---
-InsertionSTLCpy              0        29      2837       ---       ---
-Selection             99999999  99999999  99999999       ---       ---
-QuickSort             99999999  99999999  99999999  99999999  99999999
-HeapSort              99999999  99999999  99999999  99999999  99999999
-MergeSortIt                  0         2        27       389      5017
-MergeSortRec                 0         4        70       820     10198
+InsertionMCpy                0        96      9850       ---       ---
+InsertionSTLCpy              0        28      2887       ---       ---
+Selection                    0        28      2965       ---       ---
+QuickSort                    0         1        21       280      3568
+HeapSort                     0         2        35       422      5617
+MergeSortIt                  0         2        28       400      5122
+MergeSortRec                 0         5        68       822     10211
+std::sort                    0         1        21       281      3611
 
-deque<int>
+deque<int> 1..10
 Sorting \ N =              100      1000     10000    100000   1000000
-InsertionMCpy                0        50      5259       ---       ---
-InsertionSTLCpy              0        28      2794       ---       ---
-Selection                    0        20      1255       ---       ---
-QuickSort                    0         0        11        87       938
-HeapSort                     0         3        62       753      9492
-MergeSortIt                  0         1        22       257      2762
-<<<<<<< HEAD
-MergeSortRec                 0         3        33       363      3926
-=======
-MergeSortRec                 0         3        33       363      3926
+InsertionMCpy                0        51      5197       ---       ---
+InsertionSTLCpy              0        27      2719       ---       ---
+Selection                    0        12      1269       ---       ---
+QuickSort                    0         1        10        90       943
+HeapSort                     0         4        60       766      9777
+MergeSortIt                  0         1        22       252      2857
+MergeSortRec                 0         3        33       369      4070
+std::sort                    0         0         5        69       799
+
