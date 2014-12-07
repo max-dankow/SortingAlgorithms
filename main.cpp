@@ -13,10 +13,13 @@ struct MyStruct
     double Value;
 };
 
-bool operator== (const MyStruct &a, const MyStruct &b)
+struct EqualMyStruct
 {
-    return (a.Key == b.Key) && (a.Value == b.Value);
-}
+    bool operator() (const MyStruct &a, const MyStruct &b)const
+    {
+        return (a.Key == b.Key) && (a.Value == b.Value);
+    }
+};
 
 struct CompareMyStruct
 {
@@ -245,14 +248,14 @@ void Reserve(std::vector<Value> &c, size_t n)
     c.reserve(n);
 }
 
-template <typename Iterator>
-Iterator FindElement(Iterator Begin, Iterator End, Iterator KeyIt, const std::vector<bool> &available)
+template <typename Iterator, typename EqualComparator>
+Iterator FindElement(Iterator Begin, Iterator End, Iterator KeyIt, const std::vector<bool> &available, const EqualComparator &equal_comparator)
 {
     size_t i = 0;
 
     while (Begin != End)
     {
-        if ((*Begin == *KeyIt) && (!available[i]))
+        if (equal_comparator(*Begin, *KeyIt) && (!available[i]))
             return Begin;
         ++Begin;
         ++i;
@@ -262,8 +265,8 @@ Iterator FindElement(Iterator Begin, Iterator End, Iterator KeyIt, const std::ve
 }
 
 
-template <typename Iterator>
-bool CheckValues(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd)
+template <typename Iterator, typename EqualComparator>
+bool CheckValues(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Iterator perfEnd, const EqualComparator &equal_comparator)
 {
     if ((testEnd - testBegin) != (perfEnd - perfBegin))
         return false;
@@ -272,7 +275,7 @@ bool CheckValues(Iterator testBegin, Iterator testEnd, Iterator perfBegin, Itera
 
     while (testBegin != testEnd)
     {
-        Iterator searchResult = FindElement(perfBegin, perfEnd, testBegin, flag);
+        Iterator searchResult = FindElement(perfBegin, perfEnd, testBegin, flag, equal_comparator);
 
         if (searchResult == perfEnd)
             return false;
@@ -305,10 +308,10 @@ bool CheckOrder(Iterator testBegin, Iterator testEnd, const Comparator &comparat
     return true;
 }
 
-template <typename SortFunc, typename Container, typename Gen, typename Comparator=std::less
-         <typename Container::value_type>>
-bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen,
-              std::chrono::milliseconds &workTime, const Comparator &comparator = Comparator())
+template <typename SortFunc, typename Container, typename Gen, typename Comparator=std::less<typename Container::value_type>,
+          typename EqualComparator = std::equal_to<typename Container::value_type>>
+bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chrono::milliseconds &workTime,
+              const Comparator &comparator = Comparator(), const EqualComparator &equal_comparator = Comparator())
 {
     Container data;
     Reserve (data, length);
@@ -328,15 +331,17 @@ bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen,
     workTime = std::chrono::milliseconds(std::chrono::duration_cast<std::chrono::milliseconds>(TEnd - TStart).count());
 
     bool Order = CheckOrder(data.begin(), data.end(), comparator);
-    bool Values = CheckValues(data.begin(), data.end(), perfect.begin(), perfect.end());
+    bool Values = CheckValues(data.begin(), data.end(), perfect.begin(), perfect.end(), equal_comparator);
 
     return Order && Values;
 }
 
 template <typename SortFunc, typename Container, typename Gen, typename GenLength,
-         typename Comparator=std::less<typename Container::value_type>>
-void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength,
-                    const std::string message, std::chrono::milliseconds &averageTime, const Comparator &comparator = Comparator())
+          typename Comparator = std::less<typename Container::value_type>,
+          typename EqualComparator = std::equal_to<typename Container::value_type>>
+void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength, const std::string message,
+                    std::chrono::milliseconds &averageTime, const Comparator &comparator = Comparator(),
+                    const EqualComparator &equal_comparator = EqualComparator())
 {
     std::chrono::milliseconds Time;
     averageTime = std::chrono::milliseconds (0);
@@ -347,7 +352,7 @@ void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, 
         size_t localLength = genLength();
         std::cout << message << ": ";
 
-        if (!TestSort<SortFunc, Container, Gen> (sortFunc, localLength, gen, Time, comparator))
+        if (!TestSort<SortFunc, Container, Gen> (sortFunc, localLength, gen, Time, comparator, equal_comparator))
         {
             std::cout << "[-] Error: not correct! Time: ";
             std::cout << Time.count() << " ms. Length is " << localLength << std::endl;
@@ -373,10 +378,11 @@ void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, 
 
 }
 
-template <typename Container, typename Gen, typename GenLength, typename Comparator=std::less
-         <typename Container::value_type>>
+template <typename Container, typename Gen, typename GenLength,
+          typename Comparator = std::less<typename Container::value_type>,
+          typename EqualComparator = std::equal_to<typename Container::value_type>>
 void container_test_full(const size_t test_number, Gen const &gen_test, GenLength const &gen_length, const std::string container_name,
-                         const Comparator &comparator = Comparator())
+                         const Comparator &comparator = Comparator(),const EqualComparator &equal_comparator = EqualComparator())
 {
     auto testInsMCpy = [&comparator](Container &v){SortInsertionManualCopy(v.begin(), v.end(), comparator);};
     auto testInsSTLCpy = [&comparator](Container &v){SortInsertionSTLCopy(v.begin(), v.end(), comparator);};
@@ -389,25 +395,25 @@ void container_test_full(const size_t test_number, Gen const &gen_test, GenLengt
     std::chrono::milliseconds Time;
 
     RunTestSortAll <decltype(testInsMCpy), Container, decltype(gen_test), decltype(gen_length)>
-        (testInsMCpy, test_number, gen_test, gen_length, "InsertionMCpy - " + container_name, Time, comparator);
+        (testInsMCpy, test_number, gen_test, gen_length, "InsertionMCpy - " + container_name, Time, comparator, equal_comparator);
 
     RunTestSortAll <decltype(testInsSTLCpy), Container, decltype(gen_test), decltype(gen_length)>
-        (testInsSTLCpy, test_number, gen_test, gen_length, "InsertionSTLCpy - " + container_name, Time, comparator);
+        (testInsSTLCpy, test_number, gen_test, gen_length, "InsertionSTLCpy - " + container_name, Time, comparator, equal_comparator);
 
     RunTestSortAll <decltype(testSelection), Container, decltype(gen_test), decltype(gen_length)>
-        (testSelection, test_number, gen_test, gen_length, "Selection - " + container_name, Time, comparator);
+        (testSelection, test_number, gen_test, gen_length, "Selection - " + container_name, Time, comparator, equal_comparator);
 
     RunTestSortAll <decltype(testQuick), Container, decltype(gen_test), decltype(gen_length)>
-        (testQuick, test_number, gen_test, gen_length, "QuickSort - " + container_name, Time, comparator);
+        (testQuick, test_number, gen_test, gen_length, "QuickSort - " + container_name, Time, comparator, equal_comparator);
 
     RunTestSortAll <decltype(testHeap), Container, decltype(gen_test), decltype(gen_length)>
-        (testHeap, test_number, gen_test, gen_length, "HeapSort - " + container_name, Time, comparator);
+        (testHeap, test_number, gen_test, gen_length, "HeapSort - " + container_name, Time, comparator, equal_comparator);
 
     RunTestSortAll <decltype(testMergeIt), Container, decltype(gen_test), decltype(gen_length)>
-        (testMergeIt, test_number, gen_test, gen_length, "MergeSortIt - " + container_name, Time, comparator);
+        (testMergeIt, test_number, gen_test, gen_length, "MergeSortIt - " + container_name, Time, comparator, equal_comparator);
 
     RunTestSortAll <decltype(testMergeRec), Container, decltype(gen_test), decltype(gen_length)>
-        (testMergeRec, test_number, gen_test, gen_length, "MergeSortRec - " + container_name, Time, comparator);
+        (testMergeRec, test_number, gen_test, gen_length, "MergeSortRec - " + container_name, Time, comparator, equal_comparator);
 }
 
 int main()
@@ -453,7 +459,8 @@ int main()
                         return element;
                         };
 
-    container_test_full<std::vector<MyStruct>, decltype(genTest), decltype(genLen)>(10, genTest, genLen, "vector<MyStruct>", CompareMyStruct());
+    container_test_full<std::vector<MyStruct>, decltype(genTest), decltype(genLen)>(10, genTest, genLen, "vector<MyStruct>",
+                                                                                    CompareMyStruct(), EqualMyStruct());
     }
 
     {//deque<int>
