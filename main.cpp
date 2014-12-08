@@ -472,4 +472,5 @@ int main()
     container_test_full<std::deque<int>, decltype(genTest), decltype(genLen)>(10, genTest, genLen, "deque<int>");
     }
 
+    return 0;
 }
