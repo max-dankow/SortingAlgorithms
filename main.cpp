@@ -339,7 +339,7 @@ bool TestSort(const SortFunc &sortFunc, size_t length, const Gen &gen, std::chro
 template <typename SortFunc, typename Container, typename Gen, typename GenLength,
           typename Comparator = std::less<typename Container::value_type>,
           typename EqualComparator = std::equal_to<typename Container::value_type>>
-void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength, const std::string message,
+void RunTestSortAll(const SortFunc sortFunc, size_t testNumber, Gen const &gen, GenLength const &genLength, const std::string &message,
                     std::chrono::milliseconds &averageTime, const Comparator &comparator = Comparator(),
                     const EqualComparator &equal_comparator = EqualComparator())
 {
